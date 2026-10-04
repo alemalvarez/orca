@@ -83,6 +83,32 @@ describe('resolveTerminalTabMenuTarget', () => {
     expect(resolveTerminalTabMenuTarget(state, 'term-1', false)).toBeNull()
   })
 
+  it('falls back to the only leaf when the focused leaf is stale', () => {
+    const state = makeState({
+      terminalLayoutsByTabId: {
+        'term-1': {
+          root: { type: 'leaf', leafId: LEAF_A },
+          activeLeafId: LEAF_GONE,
+          expandedLeafId: null
+        }
+      }
+    })
+    expect(resolveTerminalTabMenuTarget(state, 'term-1', false)).toEqual({
+      leafId: LEAF_A,
+      agentSessionId: 'session-a'
+    })
+  })
+
+  it('falls back to the focused leaf when the chat leaf is stale', () => {
+    const state = makeState({
+      terminalLayoutsByTabId: { 'term-1': splitLayout({ chatLeafId: LEAF_GONE }) }
+    })
+    expect(resolveTerminalTabMenuTarget(state, 'term-1', true)).toEqual({
+      leafId: LEAF_B,
+      agentSessionId: 'session-b'
+    })
+  })
+
   it('keeps the terminal target but reports no session for a plain shell pane', () => {
     const state = makeState({ agentStatusByPaneKey: {} })
     expect(resolveTerminalTabMenuTarget(state, 'term-1', false)).toEqual({

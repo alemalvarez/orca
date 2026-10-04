@@ -23,9 +23,14 @@ export function resolveTerminalTabMenuTarget(
 ): TerminalTabMenuTarget | null {
   const layout = state.terminalLayoutsByTabId[tabId]
   const leafIds = collectLeafIds(layout?.root)
-  const preferred = (isChatView ? layout?.chatLeafId : undefined) ?? layout?.activeLeafId
-  const leafId = preferred ?? (leafIds.length === 1 ? leafIds[0] : undefined)
-  if (!leafId || !leafIds.includes(leafId) || !isTerminalLeafId(leafId)) {
+  // Why: layout ids can outlive their leaf, so each candidate must still be in the tree.
+  const candidates = [
+    isChatView ? layout?.chatLeafId : undefined,
+    layout?.activeLeafId,
+    leafIds.length === 1 ? leafIds[0] : undefined
+  ]
+  const leafId = candidates.find((candidate) => candidate && leafIds.includes(candidate))
+  if (!leafId || !isTerminalLeafId(leafId)) {
     return null
   }
   return {
