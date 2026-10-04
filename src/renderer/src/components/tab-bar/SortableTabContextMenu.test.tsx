@@ -74,6 +74,35 @@ vi.mock('@/i18n/i18n', () => ({
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
+const copyMock = vi.hoisted(() => ({
+  copyAgentSessionId: vi.fn(async () => {}),
+  copyTerminalIdForLeaf: vi.fn(async () => {})
+}))
+
+vi.mock('../terminal-pane/terminal-pane-menu-copy-actions', () => copyMock)
+
+const LEAF_A = '11111111-1111-4111-8111-111111111111'
+const LEAF_B = '22222222-2222-4222-8222-222222222222'
+
+function withSplitAgentTab(agentStatusByPaneKey: Record<string, unknown>): void {
+  storeMock.state = {
+    ...storeMock.state,
+    terminalLayoutsByTabId: {
+      'term-1': {
+        root: {
+          type: 'split',
+          direction: 'vertical',
+          first: { type: 'leaf', leafId: LEAF_A },
+          second: { type: 'leaf', leafId: LEAF_B }
+        },
+        activeLeafId: LEAF_B,
+        expandedLeafId: null
+      }
+    },
+    agentStatusByPaneKey
+  }
+}
+
 vi.mock('../../store', () => ({
   useAppStore: Object.assign(
     (selector: (state: Record<string, unknown>) => unknown) => selector(storeMock.state),
@@ -153,8 +182,14 @@ function getLastSplitEvent(spy: ReturnType<typeof vi.spyOn>): CustomEvent {
 
 beforeEach(() => {
   storeMock.dropUnifiedTab.mockReset()
+  copyMock.copyAgentSessionId.mockClear()
+  copyMock.copyTerminalIdForLeaf.mockClear()
   storeMock.state = {
     keybindings: {},
+    terminalLayoutsByTabId: {},
+    agentStatusByPaneKey: {},
+    sleepingAgentSessionsByPaneKey: {},
+    paneForegroundAgentByPaneKey: {},
     dropUnifiedTab: storeMock.dropUnifiedTab,
     groupsByWorktree: {
       'wt-1': [
@@ -298,5 +333,39 @@ describe('SortableTabContextMenu', () => {
 
     expect(container.textContent).not.toContain('Move Tab to Split')
     expect(container.textContent).toContain('Split terminal right')
+  })
+
+  it("copies the focused pane's agent session id and terminal id", () => {
+    withSplitAgentTab({
+      [`term-1:${LEAF_B}`]: { providerSession: { key: 'session_id', id: 'sess-b' } }
+    })
+    const { container } = renderMenu()
+
+    act(() => getButton(container, 'Copy Session ID').click())
+    expect(copyMock.copyAgentSessionId).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionId: 'sess-b' })
+    )
+
+    act(() => getButton(container, 'Copy Terminal ID').click())
+    expect(copyMock.copyTerminalIdForLeaf).toHaveBeenCalledWith(
+      expect.objectContaining({ tabId: 'term-1', leafId: LEAF_B })
+    )
+  })
+
+  it('offers only the terminal id when the focused pane runs no agent', () => {
+    withSplitAgentTab({
+      [`term-1:${LEAF_A}`]: { providerSession: { key: 'session_id', id: 'sess-a' } }
+    })
+    const { container } = renderMenu()
+
+    expect(container.textContent).not.toContain('Copy Session ID')
+    expect(container.textContent).toContain('Copy Terminal ID')
+  })
+
+  it('hides both copy actions for tabs without a terminal layout', () => {
+    const { container } = renderMenu()
+
+    expect(container.textContent).not.toContain('Copy Session ID')
+    expect(container.textContent).not.toContain('Copy Terminal ID')
   })
 })

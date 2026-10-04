@@ -60,10 +60,23 @@ export const copyTerminalPaneMenuTerminalId = async (
   if (!pane) {
     return
   }
+  await copyTerminalIdForLeaf({ tabId, leafId: pane.leafId, focus: () => pane.terminal.focus() })
+}
+
+/** Pane-independent so the tab context menu can copy the same handle without a mounted pane. */
+export const copyTerminalIdForLeaf = async ({
+  tabId,
+  leafId,
+  focus
+}: {
+  tabId: string
+  leafId: string
+  focus: () => void
+}): Promise<void> => {
   try {
     await copyTerminalHandleForPane({
       tabId,
-      leafId: pane.leafId,
+      leafId,
       callRuntime: window.api.runtime.call,
       writeClipboardText: window.api.ui.writeTerminalClipboardText
     })
@@ -81,7 +94,7 @@ export const copyTerminalPaneMenuTerminalId = async (
       )
     )
   } finally {
-    pane.terminal.focus()
+    focus()
   }
 }
 
@@ -92,8 +105,18 @@ export const copyTerminalPaneMenuAgentSessionId = async (
   if (!pane) {
     return
   }
+  await copyAgentSessionId({ sessionId, focus: () => pane.terminal.focus() })
+}
+
+export const copyAgentSessionId = async ({
+  sessionId,
+  focus
+}: {
+  sessionId: string | null
+  focus: () => void
+}): Promise<void> => {
   if (!sessionId) {
-    pane.terminal.focus()
+    focus()
     return
   }
   await runTerminalIdentityCopy({
@@ -113,6 +136,6 @@ export const copyTerminalPaneMenuAgentSessionId = async (
           'Unable to copy session ID'
         )
       ),
-    focus: () => pane.terminal.focus()
+    focus
   })
 }

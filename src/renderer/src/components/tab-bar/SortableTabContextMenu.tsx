@@ -1,4 +1,5 @@
 import {
+  Copy,
   MessageSquare,
   PanelLeftClose,
   PanelRightClose,
@@ -23,6 +24,11 @@ import { formatShortcutLabel, useOptionalShortcutLabel } from '@/hooks/useShortc
 import { translate } from '@/i18n/i18n'
 import { TerminalTabSplitMenuSection } from './TerminalTabSplitMenuSection'
 import { TAB_CONTEXT_MENU_CONTENT_CLASS } from './tab-context-menu-sizing'
+import { resolveTerminalTabMenuTarget } from './terminal-tab-menu-target'
+import {
+  copyAgentSessionId,
+  copyTerminalIdForLeaf
+} from '../terminal-pane/terminal-pane-menu-copy-actions'
 
 const TAB_COLORS = [
   {
@@ -150,6 +156,13 @@ export function SortableTabContextMenu({
 
   const closeShortcut = useOptionalShortcutLabel('tab.close')
   const renameShortcut = useOptionalShortcutLabel('tab.rename')
+  // Why: primitive selectors keep the snapshot stable; skip the lookup while the menu is closed.
+  const copyLeafId = useAppStore((state) =>
+    open ? (resolveTerminalTabMenuTarget(state, tab.id, isChatView)?.leafId ?? null) : null
+  )
+  const copySessionId = useAppStore((state) =>
+    open ? (resolveTerminalTabMenuTarget(state, tab.id, isChatView)?.agentSessionId ?? null) : null
+  )
 
   return (
     <DropdownMenu open={open} onOpenChange={onOpenChange} modal={false}>
@@ -228,6 +241,35 @@ export function SortableTabContextMenu({
             'Close Tabs To The Left'
           )}
         </DropdownMenuItem>
+        {copyLeafId ? (
+          <>
+            <DropdownMenuSeparator />
+            {copySessionId ? (
+              <DropdownMenuItem
+                onSelect={() =>
+                  void copyAgentSessionId({ sessionId: copySessionId, focus: () => {} })
+                }
+              >
+                <Copy className="size-3.5" />
+                {translate(
+                  'components.terminalPane.TerminalContextMenu.copySessionId',
+                  'Copy Session ID'
+                )}
+              </DropdownMenuItem>
+            ) : null}
+            <DropdownMenuItem
+              onSelect={() =>
+                void copyTerminalIdForLeaf({ tabId: tab.id, leafId: copyLeafId, focus: () => {} })
+              }
+            >
+              <Copy className="size-3.5" />
+              {translate(
+                'auto.components.terminal.pane.TerminalContextMenu.copyTerminalId',
+                'Copy Terminal ID'
+              )}
+            </DropdownMenuItem>
+          </>
+        ) : null}
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={onRenameOpen}>
           <Pencil className="size-3.5" />
